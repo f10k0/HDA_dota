@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # HDA.gg — High Dota Analytics
 
 > The most comprehensive Dota 2 esports statistics platform.  
@@ -201,3 +202,6 @@ dotnet ef migrations remove --project ../HDA.Infrastructure
 
 Educational project. Not affiliated with Valve Corporation or any Dota 2 partner.  
 Data from OpenDota is used under their open API terms.
+=======
+# HDA_dota
+>>>>>>> 45e3783c1986b9df6c77c32f70ab044e68517845
