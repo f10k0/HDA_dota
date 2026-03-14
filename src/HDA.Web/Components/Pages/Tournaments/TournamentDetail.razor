@@ -1,0 +1,114 @@
+@page "/tournaments/{Id:int}"
+@inject ITournamentService TournamentService
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>@(_tournament?.Name ?? "Tournament") — HDA.gg</PageTitle>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" /> }
+else if (_tournament == null) { <MudAlert Severity="Severity.Error">Tournament not found.</MudAlert> }
+else
+{
+    <!-- Header -->
+    <MudPaper Elevation="0" Style="background:linear-gradient(135deg,#16213E,#0D0D1A); border:1px solid #1E1E3A; border-radius:12px; padding:32px; margin-bottom:24px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4" Wrap="Wrap.Wrap">
+            <MudAvatar Style="width:80px;height:80px;background:#0D0D1A;">
+                <MudImage Src="@(_tournament.LogoUrl ?? "/images/default-tournament.png")" Width="64" Height="64" />
+            </MudAvatar>
+            <div style="flex:1;">
+                <MudText Typo="Typo.h3" Style="color:#EAEAEA;font-weight:900;">@_tournament.Name</MudText>
+                <MudStack Row="true" Spacing="2" Class="mt-1" Wrap="Wrap.Wrap">
+                    <MudChip T="string" Color="Color.Warning" Size="Size.Small">TIER @_tournament.Tier</MudChip>
+                    <MudChip T="string" Style="background:#1E1E3A; color:#FFD700;" Size="Size.Small">
+                        $@_tournament.PrizePool.ToString("N0") @_tournament.PrizePoolCurrency
+                    </MudChip>
+                    <MudChip T="string" Style="background:#1E1E3A; color:#8A8AAA;" Size="Size.Small">
+                        📍 @_tournament.Location ?? _tournament.Region
+                    </MudChip>
+                    <MudChip T="string" Style="background:#1E1E3A; color:#8A8AAA;" Size="Size.Small">
+                        📅 @_tournament.StartDate.ToString("MMM dd") – @_tournament.EndDate.ToString("MMM dd, yyyy")
+                    </MudChip>
+                </MudStack>
+                @if (_tournament.Description != null)
+                {
+                    <MudText Typo="Typo.body2" Style="color:#8A8AAA; margin-top:8px;">@_tournament.Description</MudText>
+                }
+            </div>
+        </MudStack>
+    </MudPaper>
+
+    <MudGrid Spacing="3">
+        <!-- Participants -->
+        <MudItem xs="12" md="4">
+            <MudText Typo="Typo.h6" Class="mb-3" Style="color:#EAEAEA;">
+                Participants (@_tournament.Participants.Count teams)
+            </MudText>
+            @foreach (var p in _tournament.Participants.OrderBy(x => x.FinalPlacement ?? 999))
+            {
+                <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer;"
+                          onclick="@(() => Nav.NavigateTo($"/teams/{p.TeamId}"))">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            @if (p.FinalPlacement.HasValue)
+                            {
+                                <MudText Style="@PlacementStyle(p.FinalPlacement.Value)" Typo="Typo.h6">
+                                    #@p.FinalPlacement
+                                </MudText>
+                            }
+                            <MudText Typo="Typo.body1" Style="color:#EAEAEA; font-weight:600;">@p.Team?.Name</MudText>
+                        </MudStack>
+                        @if (p.PrizeWon.HasValue && p.PrizeWon > 0)
+                        {
+                            <MudText Typo="Typo.body2" Style="color:#FFD700; font-weight:600;">
+                                $@p.PrizeWon.Value.ToString("N0")
+                            </MudText>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudItem>
+
+        <!-- Matches by Stage -->
+        <MudItem xs="12" md="8">
+            @foreach (var stage in _tournament.Stages.OrderBy(s => s.Order))
+            {
+                <MudText Typo="Typo.h6" Class="mb-2" Style="color:#EAEAEA;">@stage.Name</MudText>
+                @if (stage.Matches.Any())
+                {
+                    @foreach (var m in stage.Matches.OrderBy(m => m.ScheduledAt))
+                    {
+                        <MatchCard Match="m" />
+                    }
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Class="mb-3">No matches in this stage yet.</MudAlert>
+                }
+                <MudDivider Class="my-3" />
+            }
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Inject] NavigationManager Nav { get; set; } = null!;
+    private Tournament? _tournament;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tournament = await TournamentService.GetDetailAsync(Id);
+        _loading = false;
+    }
+
+    private string PlacementStyle(int p) => p switch
+    {
+        1 => "color:#FFD700; font-weight:900;",
+        2 => "color:#C0C0C0; font-weight:800;",
+        3 => "color:#CD7F32; font-weight:700;",
+        _ => "color:#8A8AAA; font-weight:600;"
+    };
+}

@@ -1,0 +1,116 @@
+@page "/heroes"
+@inject IOpenDotaService OpenDotaService
+@using HDA.Domain.Entities
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Heroes — HDA.gg</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4" Style="color:#EAEAEA;">Heroes</MudText>
+    <MudTextField @bind-Value="_search" Placeholder="Search hero..." Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined"
+                  Margin="Margin.Dense" Style="max-width:240px;" />
+</MudStack>
+
+<!-- Filter by Attribute -->
+<MudChipSet T="string" @bind-SelectedValue="_attrFilter" SelectionMode="SelectionMode.SingleSelection" Class="mb-4">
+    <MudChip T="string" Value="@("")" Color="Color.Primary">All</MudChip>
+    <MudChip T="string" Value="str" Style="background:#EF5350; color:white;">Strength</MudChip>
+    <MudChip T="string" Value="agi" Style="background:#4CAF50; color:white;">Agility</MudChip>
+    <MudChip T="string" Value="int" Style="background:#2196F3; color:white;">Intelligence</MudChip>
+    <MudChip T="string" Value="all" Style="background:#9C27B0; color:white;">Universal</MudChip>
+</MudChipSet>
+
+@if (_loading)
+{
+    <MudGrid Spacing="2">
+        @for (int i = 0; i < 24; i++)
+        {
+            <MudItem xs="6" sm="4" md="3" lg="2">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else
+{
+    <MudGrid Spacing="2">
+        @foreach (var hero in Filtered)
+        {
+            <MudItem xs="6" sm="4" md="3" lg="2">
+                <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; overflow:hidden; cursor:pointer; transition:border-color 0.2s;"
+                          Class="hero-card">
+                    @if (hero.ImageUrl != null)
+                    {
+                        <img src="@hero.ImageUrl" alt="@hero.LocalizedName"
+                             style="width:100%; height:80px; object-fit:cover; display:block;" />
+                    }
+                    else
+                    {
+                        <div style="height:80px; background:#0D0D1A; display:flex; align-items:center; justify-content:center;">
+                            <MudIcon Icon="@Icons.Material.Filled.Shield" Style="color:#1E1E3A; font-size:2.5rem;" />
+                        </div>
+                    }
+                    <div style="padding:8px;">
+                        <MudText Typo="Typo.body2" Style="color:#EAEAEA; font-weight:600; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            @hero.LocalizedName
+                        </MudText>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                            <div style="width:8px; height:8px; border-radius:50%; background:@AttrColor(hero.PrimaryAttribute);" />
+                            <MudText Typo="Typo.caption" Style="color:#8A8AAA; font-size:0.65rem;">
+                                @hero.AttackType
+                            </MudText>
+                        </MudStack>
+                        @if (hero.Roles?.Any() == true)
+                        {
+                            <MudText Typo="Typo.caption" Style="color:#8A8AAA; font-size:0.6rem; display:block; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                @string.Join(", ", hero.Roles.Take(2))
+                            </MudText>
+                        }
+                    </div>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+
+    @if (!Filtered.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">No heroes match your filters.</MudAlert>
+    }
+}
+
+@code {
+    private List<Hero> _heroes = [];
+    private string _search = "";
+    private string _attrFilter = "";
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _heroes = await OpenDotaService.GetHeroesAsync();
+        _loading = false;
+    }
+
+    private IEnumerable<Hero> Filtered
+    {
+        get
+        {
+            var q = _heroes.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(_search))
+                q = q.Where(h => h.LocalizedName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(_attrFilter))
+                q = q.Where(h => h.PrimaryAttribute == _attrFilter);
+            return q.OrderBy(h => h.LocalizedName);
+        }
+    }
+
+    private string AttrColor(string? attr) => attr switch
+    {
+        "str" => "#EF5350",
+        "agi" => "#4CAF50",
+        "int" => "#2196F3",
+        "all" => "#9C27B0",
+        _ => "#8A8AAA"
+    };
+}

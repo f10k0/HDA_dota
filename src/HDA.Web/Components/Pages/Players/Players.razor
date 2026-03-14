@@ -1,0 +1,68 @@
+@page "/players"
+@inject IProPlayerService PlayerService
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Players — HDA.gg</PageTitle>
+<MudText Typo="Typo.h4" Class="mb-4" Style="color:#EAEAEA;">Pro Players</MudText>
+
+<MudTextField @bind-Value="_search" Placeholder="Search player..." Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-4" Style="max-width:320px;"
+              Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+<MudGrid Spacing="2">
+    @foreach (var player in Filtered)
+    {
+        <MudItem xs="12" sm="6" md="4" lg="3">
+            <MudCard Style="background:#16213E; border:1px solid #1E1E3A; cursor:pointer; transition:border-color 0.2s;"
+                     onclick="@(() => Nav.NavigateTo($"/players/{player.Id}"))">
+                <MudCardMedia Image="@(player.AvatarUrl ?? "/images/default-player.png")" Height="160"
+                              Style="object-fit:cover;" />
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" Style="color:#EAEAEA;">@player.Nickname</MudText>
+                    <MudText Typo="Typo.body2" Style="color:#8A8AAA;">@player.RealName</MudText>
+                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                        @if (player.Country != null)
+                        {
+                            <MudChip T="string" Size="Size.Small" Style="background:#1E1E3A; color:#8A8AAA; font-size:0.65rem;">
+                                @player.Country
+                            </MudChip>
+                        }
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="font-size:0.65rem;">
+                            @player.Role
+                        </MudChip>
+                    </MudStack>
+                    @if (player.Team != null)
+                    {
+                        <MudText Typo="Typo.caption" Style="color:#E84057; margin-top:6px; display:block;">
+                            @player.Team.Tag
+                        </MudText>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
+@if (!Filtered.Any())
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">No players found.</MudAlert>
+}
+
+@code {
+    [Inject] NavigationManager Nav { get; set; } = null!;
+    private List<ProPlayer> _players = [];
+    private string _search = "";
+
+    private IEnumerable<ProPlayer> Filtered => string.IsNullOrWhiteSpace(_search)
+        ? _players
+        : _players.Where(p => p.Nickname.Contains(_search, StringComparison.OrdinalIgnoreCase)
+                            || (p.RealName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _players = await PlayerService.GetAllAsync(ProPlayerStatus.Approved);
+    }
+}

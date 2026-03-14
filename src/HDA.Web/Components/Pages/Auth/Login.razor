@@ -1,0 +1,59 @@
+@page "/login"
+@inject IAuthService AuthService
+@inject AppState AppState
+@inject NavigationManager Nav
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Login — HDA.gg</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:40px;">
+        <MudText Typo="Typo.h4" Align="Align.Center" Style="color:#EAEAEA; font-weight:900;" Class="mb-1">
+            Welcome back
+        </MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Style="color:#8A8AAA;" Class="mb-6">
+            Sign in to your HDA account
+        </MudText>
+
+        @if (_error != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        }
+
+        <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined"
+                      InputType="InputType.Email" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Email" Class="mb-3" />
+
+        <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined"
+                      InputType="@(_showPwd ? InputType.Text : InputType.Password)"
+                      Adornment="Adornment.End" AdornmentIcon="@(_showPwd ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => _showPwd = !_showPwd)" Class="mb-4" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large"
+                   OnClick="DoLogin" Disabled="_loading">
+            @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
+            else { <span>Sign In</span> }
+        </MudButton>
+
+        <MudDivider Class="my-4" />
+        <MudText Typo="Typo.body2" Align="Align.Center" Style="color:#8A8AAA;">
+            Don't have an account? <MudLink Href="/register" Style="color:#E84057;">Register</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string _email = "", _password = "", _error = null!;
+    private bool _loading, _showPwd;
+
+    private async Task DoLogin()
+    {
+        _error = null!;
+        _loading = true;
+        var (ok, user, err) = await AuthService.LoginAsync(_email, _password);
+        _loading = false;
+        if (ok && user != null) { AppState.SetUser(user); Nav.NavigateTo("/"); }
+        else _error = err ?? "Login failed.";
+    }
+}

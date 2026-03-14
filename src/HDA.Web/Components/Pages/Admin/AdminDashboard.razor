@@ -1,0 +1,328 @@
+@page "/admin"
+@inject AppState AppState
+@inject NavigationManager Nav
+@inject IProPlayerService PlayerService
+@inject IAuthService AuthService
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Data
+@using HDA.Infrastructure.Services
+@using Microsoft.EntityFrameworkCore
+@using MudBlazor
+
+<PageTitle>Admin Panel — HDA.gg</PageTitle>
+
+@if (!AppState.IsAdmin) { Nav.NavigateTo("/"); return; }
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <div>
+        <MudText Typo="Typo.h4" Style="color:#EAEAEA;">Admin Panel</MudText>
+        <MudText Typo="Typo.body2" Style="color:#8A8AAA;">High Dota Analytics — Management Console</MudText>
+    </div>
+    <MudChip T="string" Color="Color.Error" StartIcon="@Icons.Material.Filled.AdminPanelSettings">ADMIN</MudChip>
+</MudStack>
+
+<!-- Quick Stats -->
+<MudGrid Spacing="2" Class="mb-4">
+    @foreach (var (icon, label, val, color) in _stats)
+    {
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Style="@($"background:#16213E; border:1px solid {color}33; border-radius:10px; padding:20px;")">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@icon" Style="@($"color:{color}; font-size:2rem;")" />
+                    <div>
+                        <MudText Typo="Typo.h5" Style="@($"color:{color}; font-weight:800;")">@val</MudText>
+                        <MudText Typo="Typo.caption" Style="color:#8A8AAA;">@label</MudText>
+                    </div>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+<!-- Admin Navigation Tabs -->
+<MudTabs Elevation="0" Style="background:transparent;" PanelClass="pt-4">
+
+    <!-- Pending Approvals -->
+    <MudTabPanel Text="Pending Approvals" Icon="@Icons.Material.Filled.HourglassEmpty"
+                 BadgeData="@(_pendingPlayers.Count > 0 ? _pendingPlayers.Count.ToString() : null)"
+                 BadgeColor="Color.Warning">
+        @if (!_pendingPlayers.Any())
+        {
+            <MudAlert Severity="Severity.Success">No pending pro player applications.</MudAlert>
+        }
+        else
+        {
+            @foreach (var p in _pendingPlayers)
+            {
+                <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; padding:16px; margin-bottom:12px;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudAvatar Size="Size.Medium" Style="background:#0D0D1A;">
+                                @if (p.AvatarUrl != null)
+                                {
+                                    <MudImage Src="@p.AvatarUrl" Width="40" Height="40" />
+                                }
+                                else
+                                {
+                                    <MudText Style="font-weight:700; color:#E84057;">@p.Nickname[0]</MudText>
+                                }
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.body1" Style="color:#EAEAEA; font-weight:600;">@p.Nickname</MudText>
+                                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">
+                                    @p.RealName · @p.Country · @p.Role
+                                </MudText>
+                                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">
+                                    Email: @p.User?.Email | Applied: @p.CreatedAt.ToString("MMM dd, yyyy")
+                                </MudText>
+                            </div>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Check"
+                                       OnClick="@(() => ApprovePlayer(p.Id, true))">Approve</MudButton>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Close"
+                                       OnClick="@(() => ApprovePlayer(p.Id, false))">Reject</MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            }
+        }
+    </MudTabPanel>
+
+    <!-- Manage Teams -->
+    <MudTabPanel Text="Teams" Icon="@Icons.Material.Filled.Groups">
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-3">
+            <MudButton Href="/admin/teams/new" Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add">Add Team</MudButton>
+        </MudStack>
+        <MudTable Items="_teams" Dense="true" Hover="true" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px;">
+            <HeaderContent>
+                <MudTh Style="color:#8A8AAA;">Team</MudTh>
+                <MudTh Style="color:#8A8AAA;">Region</MudTh>
+                <MudTh Style="color:#8A8AAA;">Rank</MudTh>
+                <MudTh Style="color:#8A8AAA;">Rating</MudTh>
+                <MudTh Style="color:#8A8AAA;">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd><MudText Style="color:#EAEAEA; font-weight:600;">@context.Name</MudText></MudTd>
+                <MudTd><MudText Style="color:#8A8AAA;">@context.Region</MudText></MudTd>
+                <MudTd><MudText Style="color:#FFD700;">#@context.WorldRank</MudText></MudTd>
+                <MudTd><MudText Style="color:#E84057;">@context.RatingPoints</MudText></MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   Href="@($"/admin/teams/{context.Id}")" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+
+    <!-- Manage Matches -->
+    <MudTabPanel Text="Matches" Icon="@Icons.Material.Filled.SportsEsports">
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-3">
+            <MudButton Href="/admin/matches/new" Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add">Schedule Match</MudButton>
+        </MudStack>
+        <MudTable Items="_recentMatches" Dense="true" Hover="true" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px;">
+            <HeaderContent>
+                <MudTh Style="color:#8A8AAA;">Match</MudTh>
+                <MudTh Style="color:#8A8AAA;">Tournament</MudTh>
+                <MudTh Style="color:#8A8AAA;">Status</MudTh>
+                <MudTh Style="color:#8A8AAA;">Score</MudTh>
+                <MudTh Style="color:#8A8AAA;">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudText Style="color:#EAEAEA; font-size:0.85rem;">
+                        @context.TeamA?.Tag vs @context.TeamB?.Tag
+                    </MudText>
+                </MudTd>
+                <MudTd><MudText Style="color:#8A8AAA; font-size:0.8rem;">@context.Tournament?.Name</MudText></MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)" Style="font-size:0.65rem;">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudText Style="color:#EAEAEA; font-size:0.85rem;">
+                        @(context.Status == MatchStatus.Completed ? $"{context.TeamAScore}–{context.TeamBScore}" : context.ScheduledAt.ToString("MMM dd HH:mm"))
+                    </MudText>
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   Href="@($"/admin/matches/{context.Id}")" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+
+    <!-- Activity Logs -->
+    <MudTabPanel Text="Activity Logs" Icon="@Icons.Material.Filled.List">
+        <MudTable Items="_logs" Dense="true" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; font-size:0.8rem;">
+            <HeaderContent>
+                <MudTh Style="color:#8A8AAA;">Time</MudTh>
+                <MudTh Style="color:#8A8AAA;">User</MudTh>
+                <MudTh Style="color:#8A8AAA;">Action</MudTh>
+                <MudTh Style="color:#8A8AAA;">Entity</MudTh>
+                <MudTh Style="color:#8A8AAA;">IP</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd><MudText Style="color:#8A8AAA; font-size:0.75rem;">@context.CreatedAt.ToString("MM-dd HH:mm:ss")</MudText></MudTd>
+                <MudTd><MudText Style="color:#EAEAEA;">@(context.User?.Username ?? "System")</MudText></MudTd>
+                <MudTd><MudText Style="color:#FFC107;">@context.Action</MudText></MudTd>
+                <MudTd><MudText Style="color:#8A8AAA;">@(context.EntityType != null ? $"{context.EntityType} #{context.EntityId}" : "—")</MudText></MudTd>
+                <MudTd><MudText Style="color:#8A8AAA; font-size:0.75rem;">@(context.IpAddress ?? "—")</MudText></MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudTabPanel>
+
+    <!-- Admin Console -->
+    <MudTabPanel Text="Console" Icon="@Icons.Material.Filled.Terminal">
+        <MudPaper Elevation="0" Style="background:#0A0A14; border:1px solid #1E1E3A; border-radius:8px; padding:16px; font-family:monospace;">
+            <MudText Style="color:#4CAF50; font-size:0.85rem;" Class="mb-2">HDA Admin Console v1.0</MudText>
+            <div style="height:300px; overflow-y:auto; margin-bottom:12px;">
+                @foreach (var line in _consoleOutput)
+                {
+                    <div style="color:@(line.StartsWith("[ERR]") ? "#EF5350" : line.StartsWith("[OK]") ? "#4CAF50" : "#EAEAEA"); font-size:0.8rem; margin-bottom:2px;">
+                        @line
+                    </div>
+                }
+            </div>
+            <MudStack Row="true" Spacing="2">
+                <MudTextField @bind-Value="_consoleInput" Placeholder="Enter command..." Variant="Variant.Outlined"
+                              Margin="Margin.Dense" Style="font-family:monospace; flex:1;"
+                              onkeydown="@OnConsoleKeyDown" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunConsoleCommand">Run</MudButton>
+            </MudStack>
+            <MudText Typo="Typo.caption" Style="color:#8A8AAA; margin-top:8px; display:block;">
+                Commands: help · sync-heroes · clear-logs · list-users · stats
+            </MudText>
+        </MudPaper>
+    </MudTabPanel>
+
+</MudTabs>
+
+@code {
+    [Inject] HdaDbContext Db { get; set; } = null!;
+    [Inject] IMatchService MatchService { get; set; } = null!;
+    [Inject] ITeamService TeamService { get; set; } = null!;
+    [Inject] IOpenDotaService OpenDota { get; set; } = null!;
+    [Inject] ISnackbar Snackbar { get; set; } = null!;
+
+    private List<ProPlayer> _pendingPlayers = [];
+    private List<Team> _teams = [];
+    private List<Match> _recentMatches = [];
+    private List<ActivityLog> _logs = [];
+    private List<(string Icon, string Label, string Val, string Color)> _stats = [];
+
+    private string _consoleInput = "";
+    private List<string> _consoleOutput = ["[OK] Console ready. Type 'help' for commands."];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AppState.IsAdmin) return;
+
+        _pendingPlayers = await PlayerService.GetAllAsync(ProPlayerStatus.PendingApproval);
+        _teams = await TeamService.GetRankingsAsync();
+        _recentMatches = await MatchService.GetRecentAsync(15);
+        _logs = await Db.ActivityLogs.Include(l => l.User)
+            .OrderByDescending(l => l.CreatedAt).Take(50).ToListAsync();
+
+        var totalUsers = await Db.Users.CountAsync();
+        var totalTeams = await Db.Teams.CountAsync();
+        var totalMatches = await Db.Matches.CountAsync();
+        var totalTournaments = await Db.Tournaments.CountAsync();
+
+        _stats =
+        [
+            (Icons.Material.Filled.People, "Users", totalUsers.ToString(), "#E84057"),
+            (Icons.Material.Filled.Groups, "Teams", totalTeams.ToString(), "#2196F3"),
+            (Icons.Material.Filled.SportsEsports, "Matches", totalMatches.ToString(), "#4CAF50"),
+            (Icons.Material.Filled.EmojiEvents, "Tournaments", totalTournaments.ToString(), "#FFD700"),
+        ];
+    }
+
+    private async Task ApprovePlayer(int id, bool approve)
+    {
+        await PlayerService.ApproveAsync(id, approve);
+        await AuthService.LogActivityAsync(AppState.CurrentUser!.Id,
+            approve ? "ApproveProPlayer" : "RejectProPlayer", "ProPlayer", id);
+        _pendingPlayers = await PlayerService.GetAllAsync(ProPlayerStatus.PendingApproval);
+        Snackbar.Add(approve ? "Player approved!" : "Player rejected.", approve ? Severity.Success : Severity.Warning);
+    }
+
+    private async Task RunConsoleCommand()
+    {
+        if (string.IsNullOrWhiteSpace(_consoleInput)) return;
+        var cmd = _consoleInput.Trim().ToLower();
+        _consoleOutput.Add($"> {cmd}");
+        _consoleInput = "";
+
+        switch (cmd)
+        {
+            case "help":
+                _consoleOutput.Add("  sync-heroes   — Sync heroes from OpenDota API");
+                _consoleOutput.Add("  clear-logs    — Clear old activity logs (>30 days)");
+                _consoleOutput.Add("  list-users    — Show all users");
+                _consoleOutput.Add("  stats         — Database stats");
+                break;
+
+            case "sync-heroes":
+                _consoleOutput.Add("[...] Syncing heroes from OpenDota...");
+                try
+                {
+                    await OpenDota.SyncHeroesAsync();
+                    var count = await Db.Heroes.CountAsync();
+                    _consoleOutput.Add($"[OK] Synced. Total heroes in DB: {count}");
+                }
+                catch (Exception ex)
+                {
+                    _consoleOutput.Add($"[ERR] {ex.Message}");
+                }
+                break;
+
+            case "clear-logs":
+                var cutoff = DateTime.UtcNow.AddDays(-30);
+                var old = await Db.ActivityLogs.Where(l => l.CreatedAt < cutoff).ToListAsync();
+                Db.ActivityLogs.RemoveRange(old);
+                await Db.SaveChangesAsync();
+                _consoleOutput.Add($"[OK] Deleted {old.Count} log entries older than 30 days.");
+                break;
+
+            case "list-users":
+                var users = await Db.Users.ToListAsync();
+                foreach (var u in users)
+                    _consoleOutput.Add($"  [{u.Role}] {u.Username} ({u.Email})");
+                break;
+
+            case "stats":
+                _consoleOutput.Add($"  Users:       {await Db.Users.CountAsync()}");
+                _consoleOutput.Add($"  Teams:       {await Db.Teams.CountAsync()}");
+                _consoleOutput.Add($"  ProPlayers:  {await Db.ProPlayers.CountAsync()}");
+                _consoleOutput.Add($"  Tournaments: {await Db.Tournaments.CountAsync()}");
+                _consoleOutput.Add($"  Matches:     {await Db.Matches.CountAsync()}");
+                _consoleOutput.Add($"  Heroes:      {await Db.Heroes.CountAsync()}");
+                break;
+
+            default:
+                _consoleOutput.Add($"[ERR] Unknown command: {cmd}. Type 'help'.");
+                break;
+        }
+        StateHasChanged();
+    }
+
+    private void OnConsoleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") _ = RunConsoleCommand();
+    }
+
+    private Color StatusColor(MatchStatus s) => s switch
+    {
+        MatchStatus.Live => Color.Error,
+        MatchStatus.Completed => Color.Success,
+        MatchStatus.Scheduled => Color.Warning,
+        _ => Color.Default
+    };
+}

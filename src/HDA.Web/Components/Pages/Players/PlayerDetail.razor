@@ -1,0 +1,154 @@
+@page "/players/{Id:int}"
+@inject IProPlayerService PlayerService
+@using HDA.Domain.Entities
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>@(_player?.Nickname ?? "Player") — HDA.gg</PageTitle>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" /> }
+else if (_player == null) { <MudAlert Severity="Severity.Error">Player not found.</MudAlert> }
+else
+{
+    <MudGrid Spacing="3">
+        <!-- Left: Profile Card -->
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:24px; text-align:center;">
+                <MudAvatar Style="width:120px; height:120px; margin:0 auto 16px; border:3px solid #E84057;">
+                    @if (_player.AvatarUrl != null)
+                    {
+                        <MudImage Src="@_player.AvatarUrl" Width="120" Height="120" Style="object-fit:cover;" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Style="font-size:64px;" />
+                    }
+                </MudAvatar>
+
+                <MudText Typo="Typo.h4" Style="color:#EAEAEA; font-weight:900;">@_player.Nickname</MudText>
+                @if (_player.RealName != null)
+                {
+                    <MudText Typo="Typo.body1" Style="color:#8A8AAA;">@_player.RealName</MudText>
+                }
+
+                <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-2">
+                    @if (_player.Country != null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Style="background:#1E1E3A; color:#EAEAEA;">🌍 @_player.Country</MudChip>
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">@_player.Role</MudChip>
+                </MudStack>
+
+                @if (_player.Team != null)
+                {
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.caption" Style="color:#8A8AAA;">Current Team</MudText>
+                    <MudLink Href="@($"/teams/{_player.TeamId}")" Underline="Underline.None">
+                        <MudText Typo="Typo.h6" Style="color:#E84057;">@_player.Team.Name</MudText>
+                    </MudLink>
+                }
+
+                @if (_player.DateOfBirth.HasValue)
+                {
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.caption" Style="color:#8A8AAA;">Age</MudText>
+                    <MudText Typo="Typo.body1" Style="color:#EAEAEA;">
+                        @((DateTime.Now - _player.DateOfBirth.Value).Days / 365) years
+                    </MudText>
+                }
+
+                @if (_player.Bio != null)
+                {
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.body2" Style="color:#8A8AAA; text-align:left;">@_player.Bio</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Right: Stats -->
+        <MudItem xs="12" md="8">
+            <!-- Career Stats -->
+            <MudText Typo="Typo.h6" Class="mb-3" Style="color:#EAEAEA;">Career Statistics</MudText>
+            <MudGrid Spacing="2" Class="mb-4">
+                @foreach (var (label, val, color) in new[]
+                {
+                    ("Matches", _player.TotalMatches.ToString(), "#EAEAEA"),
+                    ("Win Rate", _player.TotalMatches > 0 ? $"{(double)_player.Wins / _player.TotalMatches * 100:F1}%" : "—", "#4CAF50"),
+                    ("Avg KDA", _player.AvgDeaths > 0 ? $"{(_player.AvgKills + _player.AvgAssists) / _player.AvgDeaths:F2}" : "—", "#FFC107"),
+                    ("Avg GPM", ((int)_player.AvgGpm).ToString(), "#FFD700"),
+                    ("Avg XPM", ((int)_player.AvgXpm).ToString(), "#00BCD4"),
+                    ("K/D/A", $"{_player.AvgKills:F1}/{_player.AvgDeaths:F1}/{_player.AvgAssists:F1}", "#EAEAEA"),
+                })
+                {
+                    <MudItem xs="6" sm="4">
+                        <MudPaper Elevation="0" Style="background:#0D0D1A; border:1px solid #1E1E3A; border-radius:8px; padding:16px; text-align:center;">
+                            <MudText Typo="Typo.h5" Style="@($"color:{color}; font-weight:700;")">@val</MudText>
+                            <MudText Typo="Typo.caption" Style="color:#8A8AAA;">@label</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+
+            <!-- Hero Stats -->
+            @if (_player.HeroStats.Any())
+            {
+                <MudText Typo="Typo.h6" Class="mb-2" Style="color:#EAEAEA;">Hero Pool</MudText>
+                <MudTable Items="_player.HeroStats.OrderByDescending(h => h.GamesPlayed).Take(10)"
+                          Dense="true" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; margin-bottom:24px;">
+                    <HeaderContent>
+                        <MudTh Style="color:#8A8AAA;">Hero</MudTh>
+                        <MudTh Style="color:#8A8AAA;">Games</MudTh>
+                        <MudTh Style="color:#8A8AAA;">Win%</MudTh>
+                        <MudTh Style="color:#8A8AAA;">Avg KDA</MudTh>
+                        <MudTh Style="color:#8A8AAA;">Avg GPM</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd><MudText Style="color:#EAEAEA; font-weight:500;">@context.Hero?.LocalizedName</MudText></MudTd>
+                        <MudTd><MudText Style="color:#8A8AAA;">@context.GamesPlayed</MudText></MudTd>
+                        <MudTd>
+                            @{ var wr = context.GamesPlayed > 0 ? (double)context.Wins / context.GamesPlayed * 100 : 0; }
+                            <MudText Style="@(wr >= 50 ? "color:#4CAF50;font-weight:600;" : "color:#EF5350;font-weight:600;")">
+                                @wr.ToString("F1")%
+                            </MudText>
+                        </MudTd>
+                        <MudTd><MudText Style="color:#FFC107;">@context.AvgKda.ToString("F2")</MudText></MudTd>
+                        <MudTd><MudText Style="color:#FFD700;">@((int)context.AvgGpm)</MudText></MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+
+            <!-- Recent Matches -->
+            @if (_player.MatchStats.Any())
+            {
+                <MudText Typo="Typo.h6" Class="mb-2" Style="color:#EAEAEA;">Recent Games</MudText>
+                @foreach (var stat in _player.MatchStats.Take(5))
+                {
+                    <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; padding:12px; margin-bottom:8px;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body2" Style="color:#EAEAEA;">@stat.Hero?.LocalizedName</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="@(stat.IsRadiant ? Color.Success : Color.Error)" Style="font-size:0.65rem;">
+                                @(stat.IsRadiant ? "Radiant" : "Dire")
+                            </MudChip>
+                            <MudText Typo="Typo.body2" Style="color:#4CAF50; font-weight:600;">
+                                @stat.Kills / <span style="color:#EF5350;">@stat.Deaths</span> / <span style="color:#FFC107;">@stat.Assists</span>
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="color:#8A8AAA;">GPM: @stat.Gpm</MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private ProPlayer? _player;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _player = await PlayerService.GetDetailAsync(Id);
+        _loading = false;
+    }
+}

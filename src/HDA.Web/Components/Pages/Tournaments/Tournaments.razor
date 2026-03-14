@@ -1,0 +1,35 @@
+@page "/tournaments"
+@inject ITournamentService TournamentService
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Events — HDA.gg</PageTitle>
+<MudText Typo="Typo.h4" Class="mb-4" Style="color:#EAEAEA;">Tournaments & Events</MudText>
+
+<MudTabs Elevation="0" Style="background:transparent;" PanelClass="pt-4">
+    <MudTabPanel Text="Ongoing">
+        <TournamentGrid Tournaments="_ongoing" />
+    </MudTabPanel>
+    <MudTabPanel Text="Upcoming">
+        <TournamentGrid Tournaments="_upcoming" />
+    </MudTabPanel>
+    <MudTabPanel Text="Completed">
+        <TournamentGrid Tournaments="_completed" />
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private List<Tournament> _ongoing = [], _upcoming = [], _completed = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ongoing   = await TournamentService.GetAllAsync(TournamentStatus.Ongoing);
+        _upcoming  = await TournamentService.GetAllAsync(TournamentStatus.Upcoming);
+        _completed = await TournamentService.GetAllAsync(TournamentStatus.Completed);
+    }
+}
+
+<!-- Inline sub-component for grid rendering -->
+@* TournamentGrid is defined in Shared *@

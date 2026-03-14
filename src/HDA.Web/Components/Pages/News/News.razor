@@ -1,0 +1,99 @@
+@page "/news"
+@inject INewsService NewsService
+@using HDA.Domain.Entities
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>News — HDA.gg</PageTitle>
+<MudText Typo="Typo.h4" Class="mb-4" Style="color:#EAEAEA;">News & Analysis</MudText>
+
+<!-- Category Filters -->
+<MudChipSet T="string" @bind-SelectedValue="_category" SelectionMode="SelectionMode.SingleSelection" Class="mb-4">
+    <MudChip T="string" Value="@("")" Color="Color.Primary">All</MudChip>
+    <MudChip T="string" Value="Result">Results</MudChip>
+    <MudChip T="string" Value="Transfer">Transfers</MudChip>
+    <MudChip T="string" Value="Patch">Patches</MudChip>
+    <MudChip T="string" Value="Interview">Interviews</MudChip>
+</MudChipSet>
+
+@if (_loading)
+{
+    <MudGrid Spacing="3">
+        @for (int i = 0; i < 6; i++)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else if (!_articles.Any())
+{
+    <MudAlert Severity="Severity.Info">No news articles found.</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var article in _articles)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Style="background:#16213E; border:1px solid #1E1E3A; cursor:pointer; height:100%;"
+                         onclick="@(() => Nav.NavigateTo($"/news/{article.Slug}"))">
+                    @if (article.ImageUrl != null)
+                    {
+                        <MudCardMedia Image="@article.ImageUrl" Height="140" />
+                    }
+                    <MudCardContent>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="font-size:0.65rem; margin-bottom:8px;">
+                            @article.Category
+                        </MudChip>
+                        <MudText Typo="Typo.h6" Style="color:#EAEAEA; font-weight:600; line-height:1.3;">@article.Title</MudText>
+                        @if (article.Summary != null)
+                        {
+                            <MudText Typo="Typo.body2" Style="color:#8A8AAA; margin-top:8px;">@article.Summary</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudText Typo="Typo.caption" Style="color:#8A8AAA; padding:0 16px 12px;">
+                            By @article.Author?.Username · @article.PublishedAt?.ToString("MMM dd, yyyy")
+                        </MudText>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <MudStack AlignItems="AlignItems.Center" Class="mt-4">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadMore" Disabled="_allLoaded">
+            @(_allLoaded ? "No more articles" : "Load More")
+        </MudButton>
+    </MudStack>
+}
+
+@code {
+    [Inject] NavigationManager Nav { get; set; } = null!;
+    private List<NewsArticle> _articles = [];
+    private string _category = "";
+    private bool _loading = true;
+    private bool _allLoaded;
+    private int _page = 1;
+
+    protected override async Task OnInitializedAsync() => await LoadArticles();
+
+    private async Task LoadArticles()
+    {
+        _loading = true;
+        _page = 1;
+        _articles = await NewsService.GetPublishedAsync(string.IsNullOrEmpty(_category) ? null : _category, _page, 9);
+        _allLoaded = _articles.Count < 9;
+        _loading = false;
+    }
+
+    private async Task LoadMore()
+    {
+        _page++;
+        var more = await NewsService.GetPublishedAsync(string.IsNullOrEmpty(_category) ? null : _category, _page, 9);
+        if (more.Count < 9) _allLoaded = true;
+        _articles.AddRange(more);
+    }
+}

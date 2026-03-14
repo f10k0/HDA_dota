@@ -1,0 +1,96 @@
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using MudBlazor
+@inject NavigationManager Nav
+
+<MudPaper Elevation="0" Style="@CardStyle" Class="match-card mb-2"
+          onclick="@(() => Nav.NavigateTo($"/matches/{Match.Id}"))">
+    <MudStack>
+        <!-- Header: Tournament + Format + Status -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.caption" Style="color:#8A8AAA;">
+                @Match.Tournament?.Name @(Match.Stage != null ? $"· {Match.Stage.Name}" : "")
+            </MudText>
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                @if (IsLive)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Error" Style="font-size:0.65rem; animation:pulse 1.5s infinite;">● LIVE</MudChip>
+                }
+                <MudChip T="string" Size="Size.Small" Style="background:#0D0D1A; color:#8A8AAA; font-size:0.65rem;">
+                    @Match.Format.ToString().ToUpper()
+                </MudChip>
+            </MudStack>
+        </MudStack>
+
+        <!-- Teams + Score -->
+        <MudGrid Spacing="0" AlignItems="AlignItems.Center">
+            <!-- Team A -->
+            <MudItem xs="4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                    <MudAvatar Style="background:#0D0D1A; width:40px; height:40px;">
+                        <MudImage Src="@(Match.TeamA?.LogoUrl ?? "/images/default-team.png")"
+                                  Alt="@Match.TeamA?.Name" Width="32" Height="32" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.body2" Style="@TeamAStyle" Align="Align.Center">
+                        @Match.TeamA?.Tag
+                    </MudText>
+                </MudStack>
+            </MudItem>
+
+            <!-- Score or Time -->
+            <MudItem xs="4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                    @if (Match.Status == MatchStatus.Completed || Match.Status == MatchStatus.Live)
+                    {
+                        <MudText Typo="Typo.h5" Style="color:#EAEAEA; font-weight:800;">
+                            @Match.TeamAScore — @Match.TeamBScore
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h6" Style="color:#E84057; font-weight:700;">
+                            @Match.ScheduledAt.ToLocalTime().ToString("HH:mm")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color:#8A8AAA;">
+                            @Match.ScheduledAt.ToLocalTime().ToString("MMM dd")
+                        </MudText>
+                    }
+                    @if (Match.TwitchUrl != null || Match.YoutubeUrl != null)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Tv" Size="Size.Small" Style="color:#9146FF; margin-top:2px;" />
+                    }
+                </MudStack>
+            </MudItem>
+
+            <!-- Team B -->
+            <MudItem xs="4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                    <MudAvatar Style="background:#0D0D1A; width:40px; height:40px;">
+                        <MudImage Src="@(Match.TeamB?.LogoUrl ?? "/images/default-team.png")"
+                                  Alt="@Match.TeamB?.Name" Width="32" Height="32" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.body2" Style="@TeamBStyle" Align="Align.Center">
+                        @Match.TeamB?.Tag
+                    </MudText>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public Match Match { get; set; } = null!;
+    [Parameter] public bool IsLive { get; set; }
+
+    private string CardStyle => IsLive
+        ? "background:#1A0A1E; border:1px solid #E84057; border-radius:8px; padding:16px; cursor:pointer; transition:all 0.2s;"
+        : "background:#16213E; border:1px solid #1E1E3A; border-radius:8px; padding:16px; cursor:pointer; transition:all 0.2s;";
+
+    private string TeamAStyle => Match.WinnerId == Match.TeamAId
+        ? "color:#4CAF50; font-weight:700;"
+        : Match.Status == MatchStatus.Completed ? "color:#EF5350; font-weight:600;" : "color:#EAEAEA; font-weight:600;";
+
+    private string TeamBStyle => Match.WinnerId == Match.TeamBId
+        ? "color:#4CAF50; font-weight:700;"
+        : Match.Status == MatchStatus.Completed ? "color:#EF5350; font-weight:600;" : "color:#EAEAEA; font-weight:600;";
+}

@@ -1,0 +1,67 @@
+@* TournamentGrid.razor *@
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using MudBlazor
+@inject NavigationManager Nav
+
+@if (Tournaments.Any())
+{
+    <MudGrid Spacing="2">
+        @foreach (var t in Tournaments)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Style="background:#16213E; border:1px solid #1E1E3A; cursor:pointer;"
+                         onclick="@(() => Nav.NavigateTo($"/tournaments/{t.Id}"))">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                            <MudAvatar Style="background:#0D0D1A; width:48px; height:48px;">
+                                <MudImage Src="@(t.LogoUrl ?? "/images/default-tournament.png")" Width="40" Height="40" />
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.body1" Style="color:#EAEAEA; font-weight:600; line-height:1.2;">@t.Name</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="TierColor(t.Tier)" Style="font-size:0.6rem; margin-top:2px;">
+                                    TIER @t.Tier
+                                </MudChip>
+                            </div>
+                        </MudStack>
+                        <MudDivider Class="my-2" />
+                        <MudStack Row="true" Justify="Justify.SpaceBetween">
+                            <div>
+                                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">Prize Pool</MudText>
+                                <MudText Typo="Typo.body2" Style="color:#FFD700; font-weight:700;">
+                                    $@t.PrizePool.ToString("N0")
+                                </MudText>
+                            </div>
+                            <div>
+                                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">Dates</MudText>
+                                <MudText Typo="Typo.body2" Style="color:#EAEAEA;">
+                                    @t.StartDate.ToString("MMM dd") – @t.EndDate.ToString("MMM dd")
+                                </MudText>
+                            </div>
+                            <div>
+                                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">Region</MudText>
+                                <MudText Typo="Typo.body2" Style="color:#EAEAEA;">@t.Region</MudText>
+                            </div>
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">No tournaments in this category.</MudAlert>
+}
+
+@code {
+    [Parameter] public List<Tournament> Tournaments { get; set; } = [];
+
+    private Color TierColor(TournamentTier tier) => tier switch
+    {
+        TournamentTier.S => Color.Warning,
+        TournamentTier.A => Color.Primary,
+        TournamentTier.B => Color.Info,
+        _ => Color.Default
+    };
+}

@@ -1,0 +1,122 @@
+@page "/"
+@inject IMatchService MatchService
+@inject INewsService NewsService
+@inject ITournamentService TournamentService
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>HDA.gg — High Dota Analytics</PageTitle>
+
+<!-- Hero Banner -->
+<MudPaper Elevation="0" Style="background:linear-gradient(135deg,#0F0F23 0%,#1A0A1E 50%,#0D0D1A 100%); border:1px solid #E84057; border-radius:12px; padding:40px; margin-bottom:32px; position:relative; overflow:hidden;">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;background:linear-gradient(90deg,transparent,rgba(232,64,87,0.05));pointer-events:none;"></div>
+    <MudText Typo="Typo.h3" Style="color:#EAEAEA; font-weight:900; line-height:1.1;">
+        HIGH DOTA<br/><span style="color:#E84057;">ANALYTICS</span>
+    </MudText>
+    <MudText Typo="Typo.body1" Style="color:#8A8AAA; margin-top:12px; max-width:500px;">
+        The most comprehensive Dota 2 esports statistics platform. Live scores, match history, team rankings and deep analytics.
+    </MudText>
+    <MudStack Row="true" Spacing="2" Class="mt-4">
+        <MudButton Href="/matches" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.SportsEsports">View Matches</MudButton>
+        <MudButton Href="/teams" Variant="Variant.Outlined" Color="Color.Primary">Team Rankings</MudButton>
+    </MudStack>
+</MudPaper>
+
+<MudGrid Spacing="3">
+    <!-- Live Matches -->
+    <MudItem xs="12">
+        @if (_liveMatches.Any())
+        {
+            <MudText Typo="Typo.h5" Class="mb-3" Style="color:#EAEAEA;">
+                <MudIcon Icon="@Icons.Material.Filled.FiberManualRecord" Color="Color.Error" Size="Size.Small" Class="mr-1" />
+                LIVE NOW
+            </MudText>
+            <MudGrid Spacing="2">
+                @foreach (var m in _liveMatches)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MatchCard Match="m" IsLive="true" />
+                    </MudItem>
+                }
+            </MudGrid>
+            <MudDivider Class="my-4" />
+        }
+    </MudItem>
+
+    <!-- Upcoming Matches -->
+    <MudItem xs="12" md="8">
+        <MudText Typo="Typo.h5" Class="mb-3" Style="color:#EAEAEA;">Upcoming Matches</MudText>
+        @if (_loading)
+        {
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="80px" Class="mb-2" />
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="80px" Class="mb-2" />
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="80px" />
+        }
+        else if (!_upcoming.Any())
+        {
+            <MudAlert Severity="Severity.Info">No upcoming matches scheduled.</MudAlert>
+        }
+        else
+        {
+            @foreach (var m in _upcoming)
+            {
+                <MatchCard Match="m" />
+            }
+        }
+        <MudButton Href="/matches" Variant="Variant.Text" Color="Color.Primary" Class="mt-2">View all matches →</MudButton>
+    </MudItem>
+
+    <!-- Sidebar: Recent Results + News -->
+    <MudItem xs="12" md="4">
+        <!-- Recent Results -->
+        <MudText Typo="Typo.h6" Class="mb-2" Style="color:#EAEAEA;">Recent Results</MudText>
+        @foreach (var m in _recent)
+        {
+            <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; padding:12px; margin-bottom:8px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Style="color:#8A8AAA; font-size:0.7rem;">@m.Tournament?.Name</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="background:#0D0D1A;">@m.Format</MudChip>
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mt-1">
+                    <MudText Typo="Typo.body1" Style="@($"color:{(m.WinnerId == m.TeamAId ? "#4CAF50" : "#EF5350")}; font-weight:600;")">@m.TeamA?.Tag</MudText>
+                    <MudText Typo="Typo.h6" Style="color:#EAEAEA; font-weight:700;">@m.TeamAScore — @m.TeamBScore</MudText>
+                    <MudText Typo="Typo.body1" Style="@($"color:{(m.WinnerId == m.TeamBId ? "#4CAF50" : "#EF5350")}; font-weight:600;")">@m.TeamB?.Tag</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        <MudButton Href="/matches?tab=results" Variant="Variant.Text" Color="Color.Primary">All results →</MudButton>
+
+        <!-- Latest News -->
+        <MudText Typo="Typo.h6" Class="mt-4 mb-2" Style="color:#EAEAEA;">Latest News</MudText>
+        @foreach (var n in _news)
+        {
+            <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer;"
+                      onclick="@(() => Nav.NavigateTo($"/news/{n.Slug}"))">
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="margin-bottom:4px; font-size:0.65rem;">@n.Category</MudChip>
+                <MudText Typo="Typo.body2" Style="color:#EAEAEA; font-weight:500; line-height:1.3;">@n.Title</MudText>
+                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">@n.PublishedAt?.ToString("MMM dd")</MudText>
+            </MudPaper>
+        }
+        <MudButton Href="/news" Variant="Variant.Text" Color="Color.Primary">All news →</MudButton>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+    private List<Match> _upcoming = [];
+    private List<Match> _recent = [];
+    private List<Match> _liveMatches = [];
+    private List<NewsArticle> _news = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _upcoming = await MatchService.GetUpcomingAsync(6);
+        _recent = await MatchService.GetRecentAsync(5);
+        _liveMatches = await MatchService.GetLiveAsync();
+        _news = await NewsService.GetPublishedAsync(pageSize: 4);
+        _loading = false;
+    }
+}

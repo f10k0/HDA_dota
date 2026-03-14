@@ -1,0 +1,136 @@
+@inherits LayoutComponentBase
+@inject AppState AppState
+@inject NavigationManager Nav
+@implements IDisposable
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<MudLayout>
+    <!-- Top AppBar -->
+    <MudAppBar Elevation="2" Dense="false" Style="background:#0F0F23; border-bottom:1px solid #E84057;">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@(() => _drawerOpen = !_drawerOpen)" />
+
+        <MudLink Href="/" Underline="Underline.None">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudText Typo="Typo.h6" Style="color:#E84057; font-weight:900; letter-spacing:2px;">HDA</MudText>
+                <MudText Typo="Typo.body2" Style="color:#8A8AAA; margin-top:2px;">.gg</MudText>
+            </MudStack>
+        </MudLink>
+
+        <!-- Desktop Nav Links -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudStack Row="true" Spacing="0" Class="ml-6">
+                <MudButton Href="/matches" Color="Color.Inherit" Variant="Variant.Text">Matches</MudButton>
+                <MudButton Href="/tournaments" Color="Color.Inherit" Variant="Variant.Text">Events</MudButton>
+                <MudButton Href="/teams" Color="Color.Inherit" Variant="Variant.Text">Teams</MudButton>
+                <MudButton Href="/players" Color="Color.Inherit" Variant="Variant.Text">Players</MudButton>
+                <MudButton Href="/heroes" Color="Color.Inherit" Variant="Variant.Text">Heroes</MudButton>
+                <MudButton Href="/news" Color="Color.Inherit" Variant="Variant.Text">News</MudButton>
+            </MudStack>
+        </MudHidden>
+
+        <MudSpacer />
+
+        @if (AppState.IsAuthenticated)
+        {
+            @if (AppState.IsAdmin)
+            {
+                <MudChip T="string" Color="Color.Error" Size="Size.Small" Class="mr-2">ADMIN</MudChip>
+            }
+            else if (AppState.IsProPlayer)
+            {
+                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="mr-2">PRO</MudChip>
+            }
+            <MudMenu Dense="true" AnchorOrigin="Origin.BottomRight">
+                <ActivatorContent>
+                    <MudAvatar Color="Color.Primary" Size="Size.Small" Style="cursor:pointer;">
+                        @AppState.CurrentUser!.Username[0].ToString().ToUpper()
+                    </MudAvatar>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem Href="/profile">My Profile</MudMenuItem>
+                    @if (AppState.IsProPlayer)
+                    {
+                        <MudMenuItem Href="/pro-profile">Pro Profile</MudMenuItem>
+                    }
+                    @if (AppState.IsAdmin)
+                    {
+                        <MudMenuItem Href="/admin">Admin Panel</MudMenuItem>
+                    }
+                    <MudDivider />
+                    <MudMenuItem OnClick="Logout">Logout</MudMenuItem>
+                </ChildContent>
+            </MudMenu>
+        }
+        else
+        {
+            <MudButton Href="/login" Variant="Variant.Text" Color="Color.Inherit" Class="mr-1">Login</MudButton>
+            <MudButton Href="/register" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small">Register</MudButton>
+        }
+    </MudAppBar>
+
+    <!-- Drawer (Mobile) -->
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2"
+               Style="background:#16213E;">
+        <MudNavMenu>
+            <MudNavLink Href="/" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Home</MudNavLink>
+            <MudNavLink Href="/matches" Icon="@Icons.Material.Filled.SportsEsports">Matches</MudNavLink>
+            <MudNavLink Href="/tournaments" Icon="@Icons.Material.Filled.EmojiEvents">Events</MudNavLink>
+            <MudNavLink Href="/teams" Icon="@Icons.Material.Filled.Groups">Teams</MudNavLink>
+            <MudNavLink Href="/players" Icon="@Icons.Material.Filled.Person">Players</MudNavLink>
+            <MudNavLink Href="/heroes" Icon="@Icons.Material.Filled.Shield">Heroes</MudNavLink>
+            <MudNavLink Href="/news" Icon="@Icons.Material.Filled.Article">News</MudNavLink>
+            @if (AppState.IsAdmin)
+            {
+                <MudDivider Class="my-2" />
+                <MudNavLink Href="/admin" Icon="@Icons.Material.Filled.AdminPanelSettings" IconColor="Color.Error">Admin</MudNavLink>
+            }
+        </MudNavMenu>
+    </MudDrawer>
+
+    <!-- Main Content -->
+    <MudMainContent Style="background:#0D0D1A; min-height:100vh;">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
+            @Body
+        </MudContainer>
+
+        <!-- Footer -->
+        <MudPaper Square="true" Elevation="0" Style="background:#0F0F23; border-top:1px solid #1E1E3A; margin-top:60px; padding:24px;">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge">
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        <MudText Typo="Typo.h6" Style="color:#E84057; font-weight:900;">HDA.gg</MudText>
+                        <MudText Typo="Typo.body2" Style="color:#8A8AAA;">High Dota Analytics — Professional Dota 2 stats and analytics platform.</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudText Typo="Typo.subtitle2" Style="color:#EAEAEA;" Class="mb-2">Data Sources</MudText>
+                        <MudText Typo="Typo.body2" Style="color:#8A8AAA;">OpenDota API · PandaScore · Steam Web API · Liquipedia</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudText Typo="Typo.body2" Style="color:#8A8AAA;" Class="mt-2">
+                            © @DateTime.Now.Year High Dota Analytics. Not affiliated with Valve Corporation.
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudContainer>
+        </MudPaper>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = false;
+
+    protected override void OnInitialized()
+    {
+        AppState.OnChange += StateHasChanged;
+    }
+
+    private void Logout()
+    {
+        AppState.Logout();
+        Nav.NavigateTo("/");
+    }
+
+    public void Dispose() => AppState.OnChange -= StateHasChanged;
+}

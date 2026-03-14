@@ -1,0 +1,247 @@
+@page "/pro-profile"
+@inject IProPlayerService PlayerService
+@inject ITeamService TeamService
+@inject IFileUploadService FileUpload
+@inject AppState AppState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+
+<PageTitle>My Pro Profile — HDA.gg</PageTitle>
+
+@if (!AppState.IsAuthenticated)
+{
+    Nav.NavigateTo("/login");
+    return;
+}
+
+<MudText Typo="Typo.h4" Class="mb-4" Style="color:#EAEAEA;">My Pro Profile</MudText>
+
+@if (_profile?.Status == ProPlayerStatus.PendingApproval)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">
+        Your pro player profile is <strong>pending admin approval</strong>. Some fields are read-only until approved.
+    </MudAlert>
+}
+@if (_profile?.Status == ProPlayerStatus.Rejected)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        Your pro player application was <strong>rejected</strong>. You may update your profile and resubmit.
+    </MudAlert>
+}
+
+<MudGrid Spacing="3">
+    <!-- Avatar Upload -->
+    <MudItem xs="12" md="3">
+        <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:24px; text-align:center;">
+            <MudAvatar Style="width:120px; height:120px; margin:0 auto 16px; border:3px solid #E84057;">
+                @if (!string.IsNullOrEmpty(_avatarPreview))
+                {
+                    <MudImage Src="@_avatarPreview" Width="120" Height="120" Style="object-fit:cover;" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Style="font-size:64px;" />
+                }
+            </MudAvatar>
+
+            <InputFile id="avatarInput" OnChange="OnAvatarSelected" accept="image/*" style="display:none;" />
+            <MudButton HtmlTag="label" Variant="Variant.Outlined" Color="Color.Primary"
+                       for="avatarInput" StartIcon="@Icons.Material.Filled.Upload" Size="Size.Small" Class="mb-2">
+                Upload Photo
+            </MudButton>
+
+            @if (_avatarFile != null)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           OnClick="SaveAvatar" Disabled="_savingAvatar" FullWidth="true">
+                    @if (_savingAvatar) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
+                    else { <span>Save Photo</span> }
+                </MudButton>
+            }
+
+            <MudText Typo="Typo.caption" Style="color:#8A8AAA; display:block; margin-top:8px;">
+                JPG, PNG, WebP · Max 5MB
+            </MudText>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Profile Form -->
+    <MudItem xs="12" md="9">
+        <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:24px;">
+            <MudText Typo="Typo.h6" Class="mb-4" Style="color:#EAEAEA;">Profile Information</MudText>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_form.Nickname" Label="Nickname *" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Nickname is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_form.RealName" Label="Real Name" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_form.Country" Label="Country" Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Flag" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_form.DateOfBirth" Label="Date of Birth" Variant="Variant.Outlined"
+                                   DateFormat="yyyy-MM-dd" MaxDate="DateTime.Today.AddYears(-14)" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_form.Role" Label="Role *" Variant="Variant.Outlined">
+                        @foreach (var role in Enum.GetValues<PlayerRole>())
+                        {
+                            <MudSelectItem Value="role">@role</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_form.TeamId" Label="Team" Variant="Variant.Outlined">
+                        <MudSelectItem T="int?" Value="@((int?)null)">No Team / Free Agent</MudSelectItem>
+                        @foreach (var t in _teams)
+                        {
+                            <MudSelectItem T="int?" Value="t.Id">@t.Name (@t.Tag)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_form.SteamId" Label="Steam ID" Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Tag"
+                                  HelperText="Your Steam64 ID for stat sync" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_form.Bio" Label="Bio / About Me" Variant="Variant.Outlined"
+                                  Lines="4" MaxLength="500" HelperText="@($"{_form.Bio?.Length ?? 0}/500 characters")" />
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveProfile"
+                           Disabled="_saving" StartIcon="@Icons.Material.Filled.Save">
+                    @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
+                    else { <span>Save Profile</span> }
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <!-- Career Stats (read-only, populated by admin) -->
+    @if (_profile?.Status == ProPlayerStatus.Approved)
+    {
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:24px;">
+                <MudText Typo="Typo.h6" Class="mb-3" Style="color:#EAEAEA;">Career Stats (maintained by HDA)</MudText>
+                <MudGrid Spacing="2">
+                    @foreach (var (label, val) in new[]
+                    {
+                        ("Matches", _profile.TotalMatches.ToString()),
+                        ("Wins", _profile.Wins.ToString()),
+                        ("Avg Kills", _profile.AvgKills.ToString("F2")),
+                        ("Avg Deaths", _profile.AvgDeaths.ToString("F2")),
+                        ("Avg Assists", _profile.AvgAssists.ToString("F2")),
+                        ("Avg GPM", ((int)_profile.AvgGpm).ToString()),
+                    })
+                    {
+                        <MudItem xs="6" sm="2">
+                            <MudPaper Elevation="0" Style="background:#0D0D1A; border:1px solid #1E1E3A; border-radius:8px; padding:12px; text-align:center;">
+                                <MudText Typo="Typo.h6" Style="color:#E84057; font-weight:700;">@val</MudText>
+                                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">@label</MudText>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private ProPlayer? _profile;
+    private List<Team> _teams = [];
+    private IBrowserFile? _avatarFile;
+    private string? _avatarPreview;
+    private bool _saving, _savingAvatar;
+
+    private ProfileForm _form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AppState.IsAuthenticated) return;
+        _teams = await TeamService.GetRankingsAsync();
+        _profile = await PlayerService.GetByUserIdAsync(AppState.CurrentUser!.Id);
+
+        if (_profile != null)
+        {
+            _form = new ProfileForm
+            {
+                Nickname = _profile.Nickname,
+                RealName = _profile.RealName,
+                Country = _profile.Country,
+                DateOfBirth = _profile.DateOfBirth,
+                Role = _profile.Role,
+                TeamId = _profile.TeamId,
+                SteamId = _profile.SteamId,
+                Bio = _profile.Bio
+            };
+            _avatarPreview = _profile.AvatarUrl;
+        }
+    }
+
+    private async Task OnAvatarSelected(InputFileChangeEventArgs e)
+    {
+        _avatarFile = e.File;
+        var buffer = new byte[e.File.Size];
+        await e.File.OpenReadStream(5 * 1024 * 1024).ReadAsync(buffer);
+        _avatarPreview = $"data:{e.File.ContentType};base64,{Convert.ToBase64String(buffer)}";
+    }
+
+    private async Task SaveAvatar()
+    {
+        if (_avatarFile == null || _profile == null) return;
+        _savingAvatar = true;
+        var url = await FileUpload.UploadAvatarAsync(_avatarFile);
+        if (url != null)
+        {
+            await PlayerService.UpdateAvatarAsync(_profile.Id, url);
+            _avatarPreview = url;
+            Snackbar.Add("Avatar updated!", Severity.Success);
+        }
+        else Snackbar.Add("Upload failed. Check file type/size.", Severity.Error);
+        _savingAvatar = false;
+        _avatarFile = null;
+    }
+
+    private async Task SaveProfile()
+    {
+        _saving = true;
+        var player = _profile ?? new ProPlayer { UserId = AppState.CurrentUser!.Id };
+        player.Nickname = _form.Nickname ?? "";
+        player.RealName = _form.RealName;
+        player.Country = _form.Country;
+        player.DateOfBirth = _form.DateOfBirth;
+        player.Role = _form.Role;
+        player.TeamId = _form.TeamId;
+        player.SteamId = _form.SteamId;
+        player.Bio = _form.Bio;
+
+        _profile = await PlayerService.CreateOrUpdateProfileAsync(player);
+        _saving = false;
+        Snackbar.Add("Profile saved!", Severity.Success);
+    }
+
+    private class ProfileForm
+    {
+        public string? Nickname { get; set; }
+        public string? RealName { get; set; }
+        public string? Country { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+        public PlayerRole Role { get; set; } = PlayerRole.Carry;
+        public int? TeamId { get; set; }
+        public string? SteamId { get; set; }
+        public string? Bio { get; set; }
+    }
+}

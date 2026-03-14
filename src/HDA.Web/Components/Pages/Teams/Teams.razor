@@ -1,0 +1,76 @@
+@page "/teams"
+@inject ITeamService TeamService
+@using HDA.Domain.Entities
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Team Rankings — HDA.gg</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4" Style="color:#EAEAEA;">Team Rankings</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:8px;">
+        <MudTable Items="_teams" Hover="true" Dense="false" Style="background:transparent;"
+                  OnRowClick="@(row => Nav.NavigateTo($"/teams/{row.Item.Id}"))">
+            <HeaderContent>
+                <MudTh Style="color:#8A8AAA;width:50px;">#</MudTh>
+                <MudTh Style="color:#8A8AAA;">Team</MudTh>
+                <MudTh Style="color:#8A8AAA;">Region</MudTh>
+                <MudTh Style="color:#8A8AAA;">Rating</MudTh>
+                <MudTh Style="color:#8A8AAA;">Players</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudText Style="@RankStyle(context.WorldRank)" Typo="Typo.h6">
+                        @context.WorldRank
+                    </MudText>
+                </MudTd>
+                <MudTd>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudAvatar Style="width:36px;height:36px;background:#0D0D1A;">
+                            <MudImage Src="@(context.LogoUrl ?? "/images/default-team.png")" Width="28" Height="28" />
+                        </MudAvatar>
+                        <div>
+                            <MudText Typo="Typo.body1" Style="color:#EAEAEA;font-weight:600;">@context.Name</MudText>
+                            <MudText Typo="Typo.caption" Style="color:#8A8AAA;">@context.Tag</MudText>
+                        </div>
+                    </MudStack>
+                </MudTd>
+                <MudTd><MudText Style="color:#8A8AAA;">@context.Region</MudText></MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Style="background:#E84057; color:white; font-weight:700;">
+                        @context.RatingPoints pts
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudText Style="color:#8A8AAA;">@context.Players.Count / 5</MudText>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+}
+
+@code {
+    [Inject] NavigationManager Nav { get; set; } = null!;
+    private List<Team> _teams = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _teams = await TeamService.GetRankingsAsync();
+        _loading = false;
+    }
+
+    private string RankStyle(int rank) => rank switch
+    {
+        1 => "color:#FFD700; font-weight:900;",
+        2 => "color:#C0C0C0; font-weight:800;",
+        3 => "color:#CD7F32; font-weight:700;",
+        _ => "color:#8A8AAA; font-weight:600;"
+    };
+}

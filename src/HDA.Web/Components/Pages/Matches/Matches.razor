@@ -1,0 +1,136 @@
+@page "/matches"
+@inject IMatchService MatchService
+@inject ITournamentService TournamentService
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Matches — HDA.gg</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4" Style="color:#EAEAEA;">Matches</MudText>
+
+<MudTabs Elevation="0" Rounded="false" PanelClass="pt-4" ActivePanelIndexChanged="OnTabChanged"
+         Style="background:transparent;" TabPanelClass="pa-0">
+
+    <!-- Upcoming -->
+    <MudTabPanel Text="Upcoming" Icon="@Icons.Material.Filled.Schedule">
+        @if (_upcoming.Any())
+        {
+            @foreach (var match in _upcoming)
+            {
+                <MatchCard Match="match" />
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-4">No upcoming matches scheduled.</MudAlert>
+        }
+    </MudTabPanel>
+
+    <!-- Live -->
+    <MudTabPanel Text="Live" Icon="@Icons.Material.Filled.FiberManualRecord" BadgeColor="Color.Error"
+                 BadgeData="@(_live.Count > 0 ? _live.Count.ToString() : null)">
+        @if (_live.Any())
+        {
+            <MudGrid Spacing="2">
+                @foreach (var match in _live)
+                {
+                    <MudItem xs="12" sm="6">
+                        <MatchCard Match="match" IsLive="true" />
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-4">No live matches right now.</MudAlert>
+        }
+    </MudTabPanel>
+
+    <!-- Results -->
+    <MudTabPanel Text="Results" Icon="@Icons.Material.Filled.CheckCircle">
+        <!-- Filter Row -->
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3" Wrap="Wrap.Wrap">
+            <MudSelect T="int?" Label="Tournament" Value="_filterTournamentId"
+                       ValueChanged="FilterByTournament" Style="min-width:220px;" Dense="true">
+                <MudSelectItem T="int?" Value="null">All Tournaments</MudSelectItem>
+                @foreach (var t in _tournaments)
+                {
+                    <MudSelectItem T="int?" Value="t.Id">@t.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+
+        @if (_resultsLoading)
+        {
+            @for (int i = 0; i < 5; i++)
+            {
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="90px" Class="mb-2" />
+            }
+        }
+        else if (!_results.Any())
+        {
+            <MudAlert Severity="Severity.Info">No results found.</MudAlert>
+        }
+        else
+        {
+            @foreach (var match in _results)
+            {
+                <MatchCard Match="match" />
+            }
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-3"
+                       OnClick="LoadMoreResults" Disabled="_allResultsLoaded">
+                @(_allResultsLoaded ? "All results loaded" : "Load more")
+            </MudButton>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private List<Match> _upcoming = [];
+    private List<Match> _live = [];
+    private List<Match> _results = [];
+    private List<Tournament> _tournaments = [];
+    private int? _filterTournamentId;
+    private bool _resultsLoading;
+    private bool _allResultsLoaded;
+    private int _resultsPage = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _upcoming = await MatchService.GetUpcomingAsync(20);
+        _live = await MatchService.GetLiveAsync();
+        _results = await MatchService.GetRecentAsync(10);
+        _tournaments = await TournamentService.GetAllAsync();
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        if (index == 2 && !_results.Any())
+        {
+            _resultsLoading = true;
+            _results = await MatchService.GetRecentAsync(10);
+            _resultsLoading = false;
+        }
+    }
+
+    private async Task FilterByTournament(int? tournamentId)
+    {
+        _filterTournamentId = tournamentId;
+        _resultsLoading = true;
+        if (tournamentId.HasValue)
+            _results = await MatchService.GetByTournamentAsync(tournamentId.Value);
+        else
+            _results = await MatchService.GetRecentAsync(10);
+        _resultsLoading = false;
+    }
+
+    private async Task LoadMoreResults()
+    {
+        _resultsPage++;
+        var more = await MatchService.GetRecentAsync(_resultsPage * 10);
+        if (more.Count <= _results.Count) _allResultsLoaded = true;
+        else _results = more;
+    }
+}

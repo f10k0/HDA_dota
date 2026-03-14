@@ -1,0 +1,58 @@
+@using MudBlazor
+
+<MudThemeProvider Theme="_theme" DefaultScrollbar="true" />
+<MudSnackbarProvider />
+<MudDialogProvider />
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>404 — HDA.gg</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16 text-center">
+                <MudText Typo="Typo.h1" Color="Color.Primary">404</MudText>
+                <MudText Typo="Typo.h5" Class="mb-4">Page not found</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/">Go Home</MudButton>
+            </MudContainer>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    private MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#E84057",
+            PrimaryDarken = "#C02D42",
+            Secondary = "#1A1A2E",
+            Background = "#0D0D1A",
+            Surface = "#16213E",
+            DrawerBackground = "#16213E",
+            AppbarBackground = "#0F0F23",
+            TextPrimary = "#EAEAEA",
+            TextSecondary = "#8A8AAA",
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#E84057",
+            PrimaryDarken = "#C02D42",
+            Secondary = "#1A1A2E",
+            Background = "#0D0D1A",
+            Surface = "#16213E",
+            DrawerBackground = "#16213E",
+            AppbarBackground = "#0F0F23",
+            TextPrimary = "#EAEAEA",
+            TextSecondary = "#8A8AAA",
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = ["Roboto", "sans-serif"] },
+            H1 = new H1Typography { FontSize = "2.5rem", FontWeight = "700" },
+            H4 = new H4Typography { FontSize = "1.5rem", FontWeight = "600" },
+        }
+    };
+}

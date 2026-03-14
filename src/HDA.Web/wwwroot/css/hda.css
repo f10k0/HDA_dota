@@ -1,0 +1,91 @@
+/* ── HDA.gg — Custom Styles ──────────────────────────────────────────────── */
+
+:root {
+    --hda-red: #E84057;
+    --hda-red-dark: #C02D42;
+    --hda-bg: #0D0D1A;
+    --hda-surface: #16213E;
+    --hda-border: #1E1E3A;
+    --hda-text: #EAEAEA;
+    --hda-text-muted: #8A8AAA;
+    --hda-gold: #FFD700;
+    --hda-green: #4CAF50;
+    --hda-red-stat: #EF5350;
+}
+
+/* ── Global ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    background-color: var(--hda-bg) !important;
+    color: var(--hda-text) !important;
+    font-family: 'Roboto', sans-serif;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hda-border) var(--hda-bg);
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--hda-bg); }
+::-webkit-scrollbar-thumb { background: var(--hda-border); border-radius: 3px; }
+
+/* ── MudBlazor overrides ─────────────────────────────────────────────────── */
+.mud-table-root { background: transparent !important; }
+.mud-table-head .mud-table-cell { background: #0D0D1A !important; }
+.mud-table-body .mud-table-row:hover .mud-table-cell { background: rgba(232,64,87,0.06) !important; cursor: pointer; }
+.mud-card { border-radius: 10px !important; }
+.mud-chip.mud-chip-size-small { height: 22px !important; font-size: 0.65rem !important; }
+.mud-nav-link.active { color: var(--hda-red) !important; background: rgba(232,64,87,0.08) !important; }
+.mud-nav-link.active .mud-nav-link-icon { color: var(--hda-red) !important; }
+.mud-expansion-panel { background: #16213E !important; }
+.mud-expansion-panel-header { background: #16213E !important; }
+
+/* ── Match Card hover ────────────────────────────────────────────────────── */
+.match-card:hover {
+    border-color: var(--hda-red) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(232, 64, 87, 0.15);
+}
+
+/* ── Hero Card hover ─────────────────────────────────────────────────────── */
+.hero-card:hover {
+    border-color: var(--hda-red) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(232, 64, 87, 0.2);
+}
+
+/* ── Live pulse animation ────────────────────────────────────────────────── */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ── Stat highlights ─────────────────────────────────────────────────────── */
+.stat-win { color: var(--hda-green) !important; font-weight: 700; }
+.stat-loss { color: var(--hda-red-stat) !important; font-weight: 600; }
+.stat-gold { color: var(--hda-gold) !important; font-weight: 600; }
+
+/* ── Rank colors ─────────────────────────────────────────────────────────── */
+.rank-1 { color: #FFD700; font-weight: 900; }
+.rank-2 { color: #C0C0C0; font-weight: 800; }
+.rank-3 { color: #CD7F32; font-weight: 700; }
+
+/* ── Page transitions ────────────────────────────────────────────────────── */
+.mud-main-content { animation: fadeIn 0.2s ease-in; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Blazor error UI ─────────────────────────────────────────────────────── */
+#blazor-error-ui {
+    background: var(--hda-red-dark);
+    bottom: 0; box-shadow: 0 -1px 2px rgba(0,0,0,.2);
+    color: white; display: none; left: 0; padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed; width: 100%; z-index: 1000;
+}
+#blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: 0.75rem; top: 0.5rem; }
+
+/* ── Admin console ───────────────────────────────────────────────────────── */
+.console-output { font-family: 'Courier New', monospace; font-size: 0.8rem; line-height: 1.5; }
+
+/* ── Responsive tweaks ───────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .mud-container { padding-left: 12px !important; padding-right: 12px !important; }
+}

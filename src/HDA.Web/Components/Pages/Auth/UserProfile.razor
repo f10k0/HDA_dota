@@ -1,0 +1,157 @@
+@page "/profile"
+@inject IAuthService AuthService
+@inject IProPlayerService PlayerService
+@inject AppState AppState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>My Profile — HDA.gg</PageTitle>
+
+@if (!AppState.IsAuthenticated) { Nav.NavigateTo("/login"); return; }
+
+<MudText Typo="Typo.h4" Class="mb-4" Style="color:#EAEAEA;">My Account</MudText>
+
+<MudGrid Spacing="3">
+    <!-- Account Info -->
+    <MudItem xs="12" md="5">
+        <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:24px;">
+            <MudStack AlignItems="AlignItems.Center" Class="mb-4">
+                <MudAvatar Style="width:80px;height:80px;background:#E84057; font-size:2rem; font-weight:900;">
+                    @AppState.CurrentUser!.Username[0].ToString().ToUpper()
+                </MudAvatar>
+                <MudText Typo="Typo.h5" Style="color:#EAEAEA; font-weight:700;">@AppState.CurrentUser.Username</MudText>
+                <MudText Typo="Typo.body2" Style="color:#8A8AAA;">@AppState.CurrentUser.Email</MudText>
+                <MudChip T="string" Color="@RoleColor(AppState.CurrentUser.Role)" Size="Size.Small">
+                    @AppState.CurrentUser.Role
+                </MudChip>
+            </MudStack>
+
+            <MudDivider Class="mb-3" />
+            <MudText Typo="Typo.caption" Style="color:#8A8AAA;">Member since</MudText>
+            <MudText Typo="Typo.body2" Style="color:#EAEAEA;">@AppState.CurrentUser.CreatedAt.ToString("MMMM dd, yyyy")</MudText>
+
+            @if (AppState.CurrentUser.LastLoginAt.HasValue)
+            {
+                <MudText Typo="Typo.caption" Style="color:#8A8AAA; margin-top:8px; display:block;">Last login</MudText>
+                <MudText Typo="Typo.body2" Style="color:#EAEAEA;">@AppState.CurrentUser.LastLoginAt.Value.ToString("MMM dd, yyyy HH:mm")</MudText>
+            }
+        </MudPaper>
+
+        <!-- Pro Player Section -->
+        <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:24px; margin-top:16px;">
+            <MudText Typo="Typo.h6" Style="color:#EAEAEA;" Class="mb-3">Pro Player Status</MudText>
+
+            @if (_proPlayer == null)
+            {
+                <MudText Typo="Typo.body2" Style="color:#8A8AAA;" Class="mb-3">
+                    Are you a professional Dota 2 player? Register your pro profile to appear in team rosters and match stats.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           OnClick="RegisterAsProPlayer" StartIcon="@Icons.Material.Filled.SportsMartialArts">
+                    Register Pro Profile
+                </MudButton>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.body2" Style="color:#EAEAEA;">Status</MudText>
+                        <MudChip T="string" Color="@StatusColor(_proPlayer.Status)" Size="Size.Small">
+                            @_proPlayer.Status
+                        </MudChip>
+                    </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.body2" Style="color:#EAEAEA;">Nickname</MudText>
+                        <MudText Typo="Typo.body2" Style="color:#8A8AAA;">@_proPlayer.Nickname</MudText>
+                    </MudStack>
+                    @if (_proPlayer.Team != null)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body2" Style="color:#EAEAEA;">Team</MudText>
+                            <MudText Typo="Typo.body2" Style="color:#E84057; font-weight:600;">@_proPlayer.Team.Tag</MudText>
+                        </MudStack>
+                    }
+                    <MudButton Href="/pro-profile" Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" Class="mt-2">
+                        Edit Pro Profile
+                    </MudButton>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Change Password -->
+    <MudItem xs="12" md="7">
+        <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:24px;">
+            <MudText Typo="Typo.h6" Style="color:#EAEAEA;" Class="mb-4">Change Password</MudText>
+
+            @if (_pwdError != null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-3">@_pwdError</MudAlert>
+            }
+            @if (_pwdSuccess)
+            {
+                <MudAlert Severity="Severity.Success" Class="mb-3">Password changed successfully!</MudAlert>
+            }
+
+            <MudTextField @bind-Value="_currentPwd" Label="Current Password" Variant="Variant.Outlined"
+                          InputType="InputType.Password" Class="mb-3" />
+            <MudTextField @bind-Value="_newPwd" Label="New Password" Variant="Variant.Outlined"
+                          InputType="InputType.Password" Class="mb-3" />
+            <MudTextField @bind-Value="_confirmPwd" Label="Confirm New Password" Variant="Variant.Outlined"
+                          InputType="InputType.Password" Class="mb-4" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ChangePassword"
+                       Disabled="_changingPwd">
+                @if (_changingPwd) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
+                else { <span>Update Password</span> }
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private ProPlayer? _proPlayer;
+    private string _currentPwd = "", _newPwd = "", _confirmPwd = "";
+    private string? _pwdError;
+    private bool _pwdSuccess, _changingPwd;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AppState.IsAuthenticated) return;
+        _proPlayer = await PlayerService.GetByUserIdAsync(AppState.CurrentUser!.Id);
+    }
+
+    private void RegisterAsProPlayer() => Nav.NavigateTo("/pro-profile");
+
+    private async Task ChangePassword()
+    {
+        _pwdError = null; _pwdSuccess = false;
+        if (_newPwd != _confirmPwd) { _pwdError = "Passwords do not match."; return; }
+        if (_newPwd.Length < 6) { _pwdError = "New password must be at least 6 characters."; return; }
+
+        _changingPwd = true;
+        var ok = await AuthService.ChangePasswordAsync(AppState.CurrentUser!.Id, _currentPwd, _newPwd);
+        _changingPwd = false;
+
+        if (ok) { _pwdSuccess = true; _currentPwd = _newPwd = _confirmPwd = ""; }
+        else _pwdError = "Current password is incorrect.";
+    }
+
+    private Color RoleColor(UserRole role) => role switch
+    {
+        UserRole.Admin => Color.Error,
+        UserRole.ProPlayer => Color.Warning,
+        _ => Color.Primary
+    };
+
+    private Color StatusColor(ProPlayerStatus status) => status switch
+    {
+        ProPlayerStatus.Approved => Color.Success,
+        ProPlayerStatus.Rejected => Color.Error,
+        _ => Color.Warning
+    };
+}

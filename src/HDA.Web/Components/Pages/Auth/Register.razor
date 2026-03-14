@@ -1,0 +1,71 @@
+@page "/register"
+@inject IAuthService AuthService
+@inject AppState AppState
+@inject NavigationManager Nav
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Register — HDA.gg</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:40px;">
+        <MudText Typo="Typo.h4" Align="Align.Center" Style="color:#EAEAEA; font-weight:900;" Class="mb-1">Create account</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Style="color:#8A8AAA;" Class="mb-6">Join the HDA community</MudText>
+
+        @if (_error != null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        }
+        @if (_success)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4">Account created! Redirecting...</MudAlert>
+        }
+
+        <MudTextField @bind-Value="_username" Label="Username" Variant="Variant.Outlined"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" Class="mb-3" />
+        <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined"
+                      InputType="InputType.Email" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Email" Class="mb-3" />
+        <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined"
+                      InputType="InputType.Password" Class="mb-3" />
+        <MudTextField @bind-Value="_confirm" Label="Confirm Password" Variant="Variant.Outlined"
+                      InputType="InputType.Password" Class="mb-4" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large"
+                   OnClick="DoRegister" Disabled="_loading || _success">
+            @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
+            else { <span>Create Account</span> }
+        </MudButton>
+
+        <MudDivider Class="my-4" />
+        <MudText Typo="Typo.body2" Align="Align.Center" Style="color:#8A8AAA;">
+            Already have an account? <MudLink Href="/login" Style="color:#E84057;">Sign in</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string _username = "", _email = "", _password = "", _confirm = "";
+    private string _error = null!;
+    private bool _loading, _success;
+
+    private async Task DoRegister()
+    {
+        _error = null!;
+        if (_password != _confirm) { _error = "Passwords do not match."; return; }
+        if (_password.Length < 6) { _error = "Password must be at least 6 characters."; return; }
+
+        _loading = true;
+        var (ok, user, err) = await AuthService.RegisterAsync(_username, _email, _password);
+        _loading = false;
+
+        if (ok && user != null)
+        {
+            _success = true;
+            AppState.SetUser(user);
+            await Task.Delay(1200);
+            Nav.NavigateTo("/");
+        }
+        else _error = err ?? "Registration failed.";
+    }
+}

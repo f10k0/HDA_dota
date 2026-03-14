@@ -1,0 +1,206 @@
+@page "/matches/{Id:int}"
+@inject IMatchService MatchService
+@using HDA.Domain.Entities
+@using HDA.Domain.Enums
+@using HDA.Infrastructure.Services
+@using MudBlazor
+
+<PageTitle>Match — HDA.gg</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_match == null)
+{
+    <MudAlert Severity="Severity.Error">Match not found.</MudAlert>
+}
+else
+{
+    <!-- Match Header -->
+    <MudPaper Elevation="0" Style="background:#16213E; border:1px solid #1E1E3A; border-radius:12px; padding:32px; margin-bottom:24px;">
+        <MudText Typo="Typo.caption" Style="color:#8A8AAA;" Class="mb-2">
+            @_match.Tournament?.Name @(_match.Stage != null ? $" — {_match.Stage.Name}" : "")
+        </MudText>
+
+        <MudGrid AlignItems="AlignItems.Center" Justify="Justify.Center">
+            <!-- Team A -->
+            <MudItem xs="5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Style="width:80px;height:80px;background:#0D0D1A;">
+                        <MudImage Src="@(_match.TeamA?.LogoUrl ?? "/images/default-team.png")" Width="64" Height="64" />
+                    </MudAvatar>
+                    <MudLink Href="@($"/teams/{_match.TeamAId}")" Underline="Underline.None">
+                        <MudText Typo="Typo.h5" Style="@TeamStyle(_match.TeamAId)" Align="Align.Center">
+                            @_match.TeamA?.Name
+                        </MudText>
+                    </MudLink>
+                </MudStack>
+            </MudItem>
+
+            <!-- Score / VS -->
+            <MudItem xs="2">
+                <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                    @if (_match.Status == MatchStatus.Completed || _match.Status == MatchStatus.Live)
+                    {
+                        <MudText Typo="Typo.h3" Style="color:#EAEAEA; font-weight:900;">
+                            @_match.TeamAScore — @_match.TeamBScore
+                        </MudText>
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@(_match.Status == MatchStatus.Live ? Color.Error : Color.Success)">
+                            @(_match.Status == MatchStatus.Live ? "LIVE" : "FINAL")
+                        </MudChip>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h4" Style="color:#8A8AAA;">VS</MudText>
+                        <MudText Typo="Typo.body1" Style="color:#E84057; font-weight:700;">
+                            @_match.ScheduledAt.ToLocalTime().ToString("MMM dd, HH:mm")
+                        </MudText>
+                    }
+                    <MudText Typo="Typo.caption" Style="color:#8A8AAA;">@_match.Format.ToString().ToUpper()</MudText>
+                </MudStack>
+            </MudItem>
+
+            <!-- Team B -->
+            <MudItem xs="5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Style="width:80px;height:80px;background:#0D0D1A;">
+                        <MudImage Src="@(_match.TeamB?.LogoUrl ?? "/images/default-team.png")" Width="64" Height="64" />
+                    </MudAvatar>
+                    <MudLink Href="@($"/teams/{_match.TeamBId}")" Underline="Underline.None">
+                        <MudText Typo="Typo.h5" Style="@TeamStyle(_match.TeamBId)" Align="Align.Center">
+                            @_match.TeamB?.Name
+                        </MudText>
+                    </MudLink>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Stream Links -->
+        @if (_match.TwitchUrl != null || _match.YoutubeUrl != null)
+        {
+            <MudStack Row="true" Justify="Justify.Center" Spacing="2" Class="mt-3">
+                @if (_match.TwitchUrl != null)
+                {
+                    <MudButton Href="@_match.TwitchUrl" Target="_blank" Variant="Variant.Filled"
+                               Style="background:#9146FF;" StartIcon="@Icons.Material.Filled.Tv">Watch on Twitch</MudButton>
+                }
+                @if (_match.YoutubeUrl != null)
+                {
+                    <MudButton Href="@_match.YoutubeUrl" Target="_blank" Variant="Variant.Filled"
+                               Style="background:#FF0000;" StartIcon="@Icons.Material.Filled.PlayCircle">YouTube</MudButton>
+                }
+            </MudStack>
+        }
+    </MudPaper>
+
+    <!-- Games / Maps -->
+    @if (_match.Games.Any())
+    {
+        <MudText Typo="Typo.h6" Class="mb-3" Style="color:#EAEAEA;">Game-by-Game</MudText>
+
+        @foreach (var game in _match.Games.OrderBy(g => g.MapNumber))
+        {
+            <MudExpansionPanels Class="mb-3">
+                <MudExpansionPanel Style="background:#16213E; border:1px solid #1E1E3A;">
+                    <TitleContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.subtitle1" Style="color:#EAEAEA;">Game @game.MapNumber</MudText>
+                            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.body2" Style="color:#4CAF50;">Radiant @game.RadiantKills</MudText>
+                                <MudText Typo="Typo.body2" Style="color:#8A8AAA;">—</MudText>
+                                <MudText Typo="Typo.body2" Style="color:#E84057;">@game.DireKills Dire</MudText>
+                                <MudText Typo="Typo.caption" Style="color:#8A8AAA;">
+                                    @TimeSpan.FromSeconds(game.DurationSeconds).ToString(@"mm\:ss")
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                    </TitleContent>
+                    <ChildContent>
+                        <!-- Draft -->
+                        @if (game.Drafts.Any())
+                        {
+                            <MudText Typo="Typo.subtitle2" Style="color:#8A8AAA;" Class="mt-2 mb-1">Draft</MudText>
+                            <MudGrid Spacing="1">
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption" Style="color:#4CAF50;" Class="mb-1">RADIANT</MudText>
+                                    @foreach (var d in game.Drafts.Where(x => x.IsRadiant).OrderBy(x => x.Order))
+                                    {
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@(d.Action == DraftAction.Pick ? Color.Success : Color.Error)"
+                                                 Style="margin:2px;">
+                                            @(d.Action == DraftAction.Ban ? "BAN: " : "")@d.Hero?.LocalizedName
+                                        </MudChip>
+                                    }
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption" Style="color:#E84057;" Class="mb-1">DIRE</MudText>
+                                    @foreach (var d in game.Drafts.Where(x => !x.IsRadiant).OrderBy(x => x.Order))
+                                    {
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@(d.Action == DraftAction.Pick ? Color.Error : Color.Warning)"
+                                                 Style="margin:2px;">
+                                            @(d.Action == DraftAction.Ban ? "BAN: " : "")@d.Hero?.LocalizedName
+                                        </MudChip>
+                                    }
+                                </MudItem>
+                            </MudGrid>
+                        }
+
+                        <!-- Scoreboard -->
+                        @if (game.PlayerStats.Any())
+                        {
+                            <MudText Typo="Typo.subtitle2" Style="color:#8A8AAA;" Class="mt-3 mb-1">Scoreboard</MudText>
+                            <MudTable Items="game.PlayerStats.OrderBy(p => p.IsRadiant ? 0 : 1)"
+                                      Dense="true" Hover="true"
+                                      Style="background:#0D0D1A; font-size:0.8rem;">
+                                <HeaderContent>
+                                    <MudTh>Player</MudTh>
+                                    <MudTh>Hero</MudTh>
+                                    <MudTh>K</MudTh>
+                                    <MudTh>D</MudTh>
+                                    <MudTh>A</MudTh>
+                                    <MudTh>GPM</MudTh>
+                                    <MudTh>XPM</MudTh>
+                                    <MudTh>NW</MudTh>
+                                    <MudTh>LH/DN</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd Style="@(context.IsRadiant ? "color:#4CAF50" : "color:#EF5350")">
+                                        @context.ProPlayer?.Nickname
+                                    </MudTd>
+                                    <MudTd>@context.Hero?.LocalizedName</MudTd>
+                                    <MudTd Style="color:#4CAF50;font-weight:600;">@context.Kills</MudTd>
+                                    <MudTd Style="color:#EF5350;font-weight:600;">@context.Deaths</MudTd>
+                                    <MudTd Style="color:#FFC107;font-weight:600;">@context.Assists</MudTd>
+                                    <MudTd Style="color:#FFD700;">@context.Gpm</MudTd>
+                                    <MudTd Style="color:#00BCD4;">@context.Xpm</MudTd>
+                                    <MudTd>@context.NetWorth.ToString("N0")</MudTd>
+                                    <MudTd>@context.LastHits/@context.Denies</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                    </ChildContent>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private Match? _match;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _match = await MatchService.GetDetailAsync(Id);
+        _loading = false;
+    }
+
+    private string TeamStyle(int? teamId) =>
+        _match?.WinnerId == teamId
+            ? "color:#4CAF50; font-weight:700;"
+            : _match?.Status == MatchStatus.Completed ? "color:#EF5350; font-weight:600;" : "color:#EAEAEA; font-weight:600;";
+}
